@@ -6,6 +6,7 @@ import sys
 from github import Github
 from github import Auth
 import base64
+import json
 
 # TODO remove
 sys.argv = ["", "2023-12-ethereumcreditguild", "2023-12-ethereumcreditguild-findings"]
@@ -36,7 +37,7 @@ def extract_links(text, external_url, type, result):
                 url = "/".join(url.split("/")[1:])
                 if "#" not in url:
                     continue
-                
+
                 source_file, source_line_no = url.split("#")[0:2]
                 source_line_no = source_line_no.split("-")[0][1:]
 
@@ -79,7 +80,8 @@ url_regex = r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^
 extract_links(bot_report_md, c.html_url + "?plain=1", "🤖", result)
 
 # Process findings
-repo = g.get_repo(repo_name + "-findings")
+repo_name = f"code-423n4/{sys.argv[2]}"
+repo = g.get_repo(repo_name)
 issues = repo.get_issues(state="all")
 
 for i in issues:
@@ -99,4 +101,5 @@ for i in issues:
 
     extract_links(i.body, i.html_url, type, result)
 
-print(result)
+with open('result.json', 'w') as fp:
+    json.dump(result, fp)
