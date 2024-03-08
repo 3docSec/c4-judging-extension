@@ -4,7 +4,7 @@
   "description": "Tools for judging on Code4rena",
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.87.0"
+    "vscode": "^1.86.0"
   },
   "categories": [
     "Other"
@@ -14,8 +14,14 @@
   "contributes": {
     "commands": [
       {
-        "command": "c4-judging.helloWorld",
-        "title": "Hello World"
+        "title": "Enable CodeLens",
+        "command": "codelens-sample.enableCodeLens",
+        "category": "CodeLens Sample"
+      },
+      {
+          "title": "Disable Codelens",
+          "command": "codelens-sample.disableCodeLens",
+          "category": "CodeLens Sample"
       }
     ]
   },
