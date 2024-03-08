@@ -100,6 +100,7 @@ for i in issues:
        continue
 
     extract_links(i.body, i.html_url, type, result)
+    # TODO: reorder to put dups together
 
 with open('result.json', 'w') as fp:
     json.dump(result, fp)

@@ -22,29 +22,16 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 
 		if (vscode.workspace.getConfiguration("codelens-sample").get("enableCodeLens", true)) {
 			this.codeLenses = [];
-			const regex = new RegExp(this.regex);
-			const text = document.getText();
-			let matches;
-			while ((matches = regex.exec(text)) !== null) {
-				const line = document.lineAt(document.positionAt(matches.index).line);
-				const indexOf = line.text.indexOf(matches[0]);
-				const position = new vscode.Position(line.lineNumber, indexOf);
-				const range = document.getWordRangeAtPosition(position, new RegExp(this.regex));
-				if (range) {
-					this.codeLenses.push(new vscode.CodeLens(range, {
-						title: "C4 findings",
-						tooltip: "Tooltip provided by sample extension",
-						command: "codelens-sample.codelensAction",
-						arguments: ["Argument 1", false]
-					}));
-					this.codeLenses.push(new vscode.CodeLens(range, {
-						title: "🤖",
-						tooltip: "Tooltip provided by sample extension",
-						command: "codelens-sample.codelensAction",
-						arguments: ["Argument 1", false]
-					}));
-				}
-			}
+			const relativeFileName = document.uri.toString().replace("file://" + vscode.workspace.rootPath + "/", "");
+			const position = new vscode.Position(0, 0);
+			const range = document.getWordRangeAtPosition(position, new RegExp(this.regex));
+			this.codeLenses.push(new vscode.CodeLens(range as vscode.Range, {
+				title: "C4 findings",
+				tooltip: relativeFileName,
+				command: "codelens-sample.codelensAction",
+				arguments: ["Argument 1", false]
+			}));
+
 			return this.codeLenses;
 		}
 		return [];
