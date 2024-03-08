@@ -7,6 +7,7 @@ from github import Github
 from github import Auth
 import base64
 
+# TODO remove
 sys.argv = ["", "2023-12-ethereumcreditguild", "2023-12-ethereumcreditguild-findings"]
 
 if len(sys.argv) != 3:
@@ -22,9 +23,34 @@ if not gh_token:
   print("Github token not found.\nGenerate one at https://github.com/settings/tokens and set it to the GITHUB_ACCESS_TOKEN environment variable")
   exit(1)
 
+def extract_links(text, external_url, type, result):
+    for line_no, line in enumerate(text.split("\n")):
+        for match in re.findall(url_regex, line):
+            url = match[0]
+            if repo_name in url:
+                # we found a reference to a line
+                external_link = f"{external_url}#L{line_no + 1}"
+
+                # extract the file path
+                url = "/blob/".join(url.split("/blob/")[1:])
+                url = "/".join(url.split("/")[1:])
+                if "#" not in url:
+                    continue
+                
+                source_file, source_line_no = url.split("#")[0:2]
+                source_line_no = source_line_no.split("-")[0][1:]
+
+                if source_file not in result:
+                    result[source_file] = {}
+                if source_line_no not in result[source_file]:
+                    result[source_file][source_line_no] = {}
+                if type not in result[source_file][source_line_no]:
+                    result[source_file][source_line_no][type] = []
+                result[source_file][source_line_no][type].append(external_link)
+
 g = Github(auth=Auth.Token(gh_token))
 
-# Map as follows:
+# Generate a map as follows:
 # {
 #   "<file_name_1>" : {
 #   <line_nr>: {
@@ -50,26 +76,27 @@ blob = repo.get_git_blob(c.sha)
 bot_report_md = base64.b64decode(blob.content).decode("utf-8", "ignore")
 url_regex = r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))"
 
-for line_no, line in enumerate(bot_report_md.split("\n")):
-   for match in re.findall(url_regex, line):
-      url = match[0]
-      if repo_name in url:
-         # we found a reference to a line
-         external_link = f"{c.html_url}?plain=1#L{line_no + 1}"
+extract_links(bot_report_md, c.html_url + "?plain=1", "🤖", result)
 
-         # extract the file path
-         url = "/blob/".join(url.split("/blob/")[1:])
-         url = "/".join(url.split("/")[1:])
-         if "#" not in url:
-            continue
-         file, line = url.split("#")
-         line = line.split("-")[0][1:]
+# Process findings
+repo = g.get_repo(repo_name + "-findings")
+issues = repo.get_issues(state="all")
 
-         if file not in result:
-            result[file] = {}
-         if line not in result[file]:
-            result[file][line] = { "🤖": [] }
+for i in issues:
+    type = None
 
-         result[file][line]["🤖"].append(external_link)
+    for l in i.labels:
+      if l.name == "2 (Med Risk)":
+        type = "M"
+      elif l.name == "3 (High Risk)":
+        type = "H"
+      elif l.name == "withdrawn by warden":
+        type = None
+        break
+
+    if type == None:
+       continue
+
+    extract_links(i.body, i.html_url, type, result)
 
 print(result)
