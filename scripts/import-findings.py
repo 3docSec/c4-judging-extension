@@ -39,7 +39,7 @@ def extract_links(text, external_url, type, result):
                     continue
 
                 source_file, source_line_no = url.split("#")[0:2]
-                source_line_no = source_line_no.split("-")[0][1:]
+                source_line_no = source_line_no.split("-")[0].split("C")[0][1:]
 
                 if source_file not in result:
                     result[source_file] = {}
@@ -80,8 +80,8 @@ url_regex = r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^
 extract_links(bot_report_md, c.html_url + "?plain=1", "🤖", result)
 
 # Process findings
-repo_name = f"code-423n4/{sys.argv[2]}"
-repo = g.get_repo(repo_name)
+findings_repo_name = f"code-423n4/{sys.argv[2]}"
+repo = g.get_repo(findings_repo_name)
 issues = repo.get_issues(state="all")
 
 for i in issues:
