@@ -26,28 +26,16 @@ if not gh_token:
 
 def extract_links(text, external_url, type, result):
     for line_no, line in enumerate(text.split("\n")):
-        for match in re.findall(url_regex, line):
-            url = match[0]
-            if repo_name in url:
-                # we found a reference to a line
-                external_link = f"{external_url}#L{line_no + 1}"
+        external_link = f"{external_url}#L{line_no + 1}"
 
-                # extract the file path
-                url = "/blob/".join(url.split("/blob/")[1:])
-                url = "/".join(url.split("/")[1:])
-                if "#" not in url:
-                    continue
-
-                source_file, source_line_no = url.split("#")[0:2]
-                source_line_no = source_line_no.split("-")[0].split("C")[0][1:]
-
-                if source_file not in result:
-                    result[source_file] = {}
-                if source_line_no not in result[source_file]:
-                    result[source_file][source_line_no] = {}
-                if type not in result[source_file][source_line_no]:
-                    result[source_file][source_line_no][type] = []
-                result[source_file][source_line_no][type].append(external_link)
+        for _, source_file, source_line_no in re.findall(url_regex, line):
+            if source_file not in result:
+                result[source_file] = {}
+            if source_line_no not in result[source_file]:
+                result[source_file][source_line_no] = {}
+            if type not in result[source_file][source_line_no]:
+                result[source_file][source_line_no][type] = []
+            result[source_file][source_line_no][type].append(external_link)
 
 g = Github(auth=Auth.Token(gh_token))
 
@@ -75,7 +63,7 @@ c = repo.get_contents(path="bot-report.md", ref=b.name)
 blob = repo.get_git_blob(c.sha)
 
 bot_report_md = base64.b64decode(blob.content).decode("utf-8", "ignore")
-url_regex = r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))"
+url_regex = f"https://github\.com/{repo_name}/blob/([a-z0-9.\-_]+)/(.*)#L([0-9]+)"
 
 extract_links(bot_report_md, c.html_url + "?plain=1", "🤖", result)
 
