@@ -38,11 +38,6 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 				let title = "C4 findings - ";
 				Object.keys(lineFindings).forEach(severity => {
 					let links = (lineFindings[severity as keyof Object] as any) as Array<string>;
-					console.log(links, severity);
-					if (links == undefined) {
-						console.log("Peppe");
-						return []
-					}
 					title += severity + ": " + links.length;
 					const position = new vscode.Position(+lineNumber - 1, 0);
 					const range = document.getWordRangeAtPosition(position, new RegExp(this.regex));
@@ -50,7 +45,7 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 						title: title,
 						tooltip: "Open these findings in your browser",
 						command: "codelens-sample.codelensAction",
-						arguments: links
+						arguments: [links]
 					}));
 					title = "";
 				})
