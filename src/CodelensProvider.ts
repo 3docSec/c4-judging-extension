@@ -26,30 +26,30 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 			let findings = getFindings();
 			this.codeLenses = [];
 
-			const relativeFileName = toRelativePath(document.uri) as keyof Object;
+			const relativeFileName = toRelativePath(document.uri);
 
-			let fileFindings = findings[relativeFileName];
+			let fileFindings = findings.get(relativeFileName);
 			if (!fileFindings) {
 				return [];
 			}
 
-			Object.keys(fileFindings).forEach(lineNumber => {
-				let lineFindings = fileFindings[lineNumber as keyof Object] as Object;
+			for (let lineNumber of fileFindings.keys()) {
+				let lineFindings = fileFindings!.get(lineNumber);
 				let title = "C4 findings - ";
-				Object.keys(lineFindings).forEach(severity => {
-					let links = (lineFindings[severity as keyof Object] as any) as Array<string>;
-					title += severity + ": " + links.length;
+				for (let severity of lineFindings!.keys()) {
+					let links = lineFindings!.get(severity);
+					title += severity + ": " + links!.length;
 					const position = new vscode.Position(+lineNumber - 1, 0);
 					const range = document.getWordRangeAtPosition(position, new RegExp(this.regex));
 					this.codeLenses.push(new vscode.CodeLens(range as vscode.Range, {
 						title: title,
 						tooltip: "Open these findings in your browser",
 						command: "c4-judging.codelensAction",
-						arguments: [links]
+						arguments: [links!]
 					}));
 					title = "";
-				})
-			});
+				}
+			}
 
 			return this.codeLenses;
 		}

@@ -8,8 +8,15 @@ import { reloadFindings, openAll } from './findings';
 // your extension is activated the very first time the command is executed
 
 let disposables: Disposable[] = [];
+let context: ExtensionContext;
 
-export function activate(context: ExtensionContext) {
+export function getContext(): ExtensionContext {
+	return context;
+}
+
+export function activate(_context: ExtensionContext) {
+	context = _context;
+	
 	const codelensProvider = new CodelensProvider();
 
 	languages.registerCodeLensProvider("*", codelensProvider);
@@ -36,7 +43,7 @@ export function activate(context: ExtensionContext) {
 			prompt: "Enter your GitHub API token - generated as simple token with repository access"
 		}) as string;
 
-		context.secrets.store("c4-judging.GitHubToken", token);
+		await context.secrets.store("c4-judging.GitHubToken", token);
 	})
 }
 

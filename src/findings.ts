@@ -1,16 +1,91 @@
 import * as vscode from 'vscode';
 import * as fse from 'fs-extra' ;
 import { toRelativePath } from './uri';
+import { Octokit } from 'octokit';
+import { getContext } from './extension';
 
-let findings: Object;
+let findings: Findings;
 
-export function reloadFindings() {
-    // TODO this should fetch from GH
-    // TODO this should check for file not existing
-    findings = fse.readJsonSync(vscode.workspace.rootPath + "/findings.json");
+type Severity = string;
+type FindingBySeverity = Map<Severity, Array<Finding>>;
+type Findings = Map<string, Map<number, FindingBySeverity>>;
+
+type Finding = {
+    Link: string
 }
 
-export function getFindings(): Object {
+export async function reloadFindings() {
+    let res: Findings = new Map();
+
+    // TODO change this:
+    const contest = "2023-12-ethereumcreditguild";
+
+    const ghSecret = await getContext().secrets.get("c4-judging.GitHubToken");
+    if (!ghSecret) {
+        vscode.window.showErrorMessage("You have to set a GitHub token first");
+        return;
+    }
+    const octokit = new Octokit({ auth: ghSecret });
+
+    // Grab HMs from GitHub issues
+    const iterator = octokit.paginate.iterator(octokit.rest.issues.listForRepo, {
+        owner: "code-423n4",
+        repo: contest + "-findings", // TODO
+        per_page: 100,
+        state: "all",
+      });
+
+    const regex = new RegExp("https:\/\/github\.com\/code-423n4\/" + contest + "\/blob\/([a-z0-9A-Z\\.\\-_]+)\/(.*)#L([0-9]+)", "g");
+      
+    for await (const { data: issues } of iterator) {
+        for (const issue of issues) {
+            // only consider HM findings (TODO: QA)
+            let type: string | undefined;
+
+            for (const l of issue.labels) {
+                const lName = l['name' as keyof Object] as unknown as string;
+                if (lName == "2 (Med Risk)"){
+                    type = "M"
+                }
+                else if (lName == "3 (High Risk)") {
+                    type = "H"
+                }
+                else if (lName == "withdrawn by warden") {
+                    type = undefined;
+                    break
+                }
+            }
+      
+            if (!type) continue;
+
+            // only consider the primary links of the issue (those at the top)
+            let links = issue.body?.split("Vulnerability details")[0] as unknown as string;
+
+            for (const match of links.matchAll(regex)) {
+                const relativeFileName = match[2];
+                const lineNumber = +match[3];
+                const issueUrl = issue.html_url;
+
+                if(!res.has(relativeFileName)) {
+                    res.set(relativeFileName, new Map());
+                }
+
+                if(!res.get(relativeFileName)!.has(lineNumber)) {
+                    res.get(relativeFileName)!.set(lineNumber, new Map());
+                }
+
+                if(!res.get(relativeFileName)!.get(lineNumber)!.has(type)) {
+                    res.get(relativeFileName)!.get(lineNumber)!.set(type, new Array());
+                }
+
+                res.get(relativeFileName)!.get(lineNumber)!.get(type)!.push({Link: issueUrl});
+            }
+        }
+    }
+    findings = res;
+}
+
+export function getFindings(): Findings {
     if (!findings) {
         reloadFindings();
     }
@@ -27,7 +102,7 @@ export async function openAll() {
     const startLine = editor.selection.start.line;
     const endLine = editor.selection.end.line;
 
-    const fileFindings = getFindings()[toRelativePath(editor.document.uri) as keyof Object];
+    const fileFindings = getFindings().get(toRelativePath(editor.document.uri));
     if (!fileFindings) {
         vscode.window.showInformationMessage("No issues found for this file");
         return;
@@ -37,12 +112,21 @@ export async function openAll() {
     let links = new Set<string>();
 
     for(let i = startLine; i <= endLine; i++) {
-        let lineFindings = fileFindings[i.toString() as keyof Object] as Object;
+        let lineFindings = fileFindings.get(i);
         if (!lineFindings) {
             continue;
         }
+
         Object.keys(lineFindings).forEach(severity => {
-            let lineLinks = (lineFindings[severity as keyof Object] as any) as Array<string>;
+            if (!lineFindings) {
+                return;
+            }
+            
+            let lineLinks = lineFindings.get(severity);
+            if (!lineLinks) {
+                return;
+            }
+
             const currCount = countsBySeverity.get(severity);
 
             if (!currCount) {
@@ -51,7 +135,7 @@ export async function openAll() {
                 countsBySeverity.set(severity, currCount + lineLinks.length);
             }
             
-            lineLinks.forEach((a) => links.add (a));
+            lineLinks.forEach((a) => links.add(a.Link));
         });
     }
 
