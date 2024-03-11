@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import * as fse from 'fs-extra' ;
+import { getFindings } from './findings';
 
 /**
  * CodelensProvider
@@ -10,7 +10,6 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 	private regex: RegExp;
 	private _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
 	public readonly onDidChangeCodeLenses: vscode.Event<void> = this._onDidChangeCodeLenses.event;
-	public findings: Object = {};
 
 	constructor() {
 		this.regex = /(.+)/g;
@@ -22,13 +21,13 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 
 	public provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): vscode.CodeLens[] | Thenable<vscode.CodeLens[]> {
 
-		if (vscode.workspace.getConfiguration("codelens-sample").get("enableCodeLens", true)) {
-			this.findings = fse.readJsonSync(vscode.workspace.rootPath + "/findings.json");
-			
+		if (vscode.workspace.getConfiguration("c4-judging").get("enableCodeLens", true)) {
+			let findings = getFindings();
 			this.codeLenses = [];
+
 			const relativeFileName = document.uri.toString().replace("file://" + vscode.workspace.rootPath + "/", "") as keyof Object;
 
-			let fileFindings = this.findings[relativeFileName];
+			let fileFindings = findings[relativeFileName];
 			if (!fileFindings) {
 				return [];
 			}
@@ -44,7 +43,7 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 					this.codeLenses.push(new vscode.CodeLens(range as vscode.Range, {
 						title: title,
 						tooltip: "Open these findings in your browser",
-						command: "codelens-sample.codelensAction",
+						command: "c4-judging.codelensAction",
 						arguments: [links]
 					}));
 					title = "";

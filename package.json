@@ -1,8 +1,9 @@
 {
   "name": "c4-judging",
-  "displayName": "c4-judging",
+  "displayName": "C4 Judging",
   "description": "Tools for judging on Code4rena",
   "version": "0.0.1",
+  "publisher": "3doc",
   "engines": {
     "vscode": "^1.86.0"
   },
@@ -14,16 +15,37 @@
   "contributes": {
     "commands": [
       {
-        "title": "Enable CodeLens",
-        "command": "codelens-sample.enableCodeLens",
-        "category": "CodeLens Sample"
+        "title": "Show findings in code editor",
+        "command": "c4-judging.enableCodeLens",
+        "category": "C4 Judging"
       },
       {
-        "title": "Disable Codelens",
-        "command": "codelens-sample.disableCodeLens",
-        "category": "CodeLens Sample"
+        "title": "Hide findings in code editor",
+        "command": "c4-judging.disableCodeLens",
+        "category": "C4 Judging"
+      },
+      {
+        "title": "Open all findings referencing selection",
+        "command": "c4-judging.followReferences",
+        "category": "C4 Judging"
+      },
+      {
+        "title": "Reload findings.json",
+        "command": "c4-judging.reloadFindings",
+        "category": "C4 Judging"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "C4 Judging",
+      "properties": {
+        "c4-judging.enableCodeLens": {
+          "type": "boolean",
+          "scope": "window",
+          "default": "false",
+          "description": "Enable finding references within the code editor"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
