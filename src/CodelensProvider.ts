@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { getFindings } from './findings';
+import { toRelativePath } from './uri';
 
 /**
  * CodelensProvider
@@ -25,7 +26,7 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 			let findings = getFindings();
 			this.codeLenses = [];
 
-			const relativeFileName = document.uri.toString().replace("file://" + vscode.workspace.rootPath + "/", "") as keyof Object;
+			const relativeFileName = toRelativePath(document.uri) as keyof Object;
 
 			let fileFindings = findings[relativeFileName];
 			if (!fileFindings) {

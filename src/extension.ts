@@ -1,8 +1,8 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
-import { ExtensionContext, languages, commands, Disposable, workspace, Uri, env} from 'vscode';
+import { ExtensionContext, languages, commands, Disposable, workspace, window, Uri, env} from 'vscode';
 import { CodelensProvider } from './CodelensProvider';
-import { reloadFindings } from './findings';
+import { reloadFindings, openAll } from './findings';
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -26,9 +26,9 @@ export function activate(context: ExtensionContext) {
 		args.forEach((a) => env.openExternal(Uri.parse(a)));
 	});
 
-	commands.registerCommand("c4-judging.reloadFindings", () => {
-		reloadFindings();
-	})
+	commands.registerCommand("c4-judging.reloadFindings", reloadFindings);
+
+	commands.registerCommand("c4-judging.followReferences", openAll);
 }
 
 // this method is called when your extension is deactivated
