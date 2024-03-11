@@ -33,6 +33,11 @@
         "title": "Reload findings.json",
         "command": "c4-judging.reloadFindings",
         "category": "C4 Judging"
+      },
+      {
+        "title": "Store GitHub API token",
+        "command": "c4-judging.storeGitHubToken",
+        "category": "C4 Judging"
       }
     ],
     "configuration": {

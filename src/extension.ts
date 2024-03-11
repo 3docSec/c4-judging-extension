@@ -29,6 +29,15 @@ export function activate(context: ExtensionContext) {
 	commands.registerCommand("c4-judging.reloadFindings", reloadFindings);
 
 	commands.registerCommand("c4-judging.followReferences", openAll);
+
+	commands.registerCommand("c4-judging.storeGitHubToken", async () => {
+		const token = await window.showInputBox({
+			placeHolder: "ghp_xxx",
+			prompt: "Enter your GitHub API token - generated as simple token with repository access"
+		}) as string;
+
+		context.secrets.store("c4-judging.GitHubToken", token);
+	})
 }
 
 // this method is called when your extension is deactivated
