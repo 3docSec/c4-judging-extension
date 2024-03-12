@@ -20,10 +20,18 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 		});
 	}
 
+	public updateCodeLenses() {
+		this._onDidChangeCodeLenses.fire();
+	}
+
 	public provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): vscode.CodeLens[] | Thenable<vscode.CodeLens[]> {
 
 		if (vscode.workspace.getConfiguration("c4-judging").get("enableCodeLens", true)) {
 			let findings = getFindings();
+			if (!findings) {
+				return [];
+			}
+
 			this.codeLenses = [];
 
 			const relativeFileName = toRelativePath(document.uri);

@@ -29,7 +29,10 @@ class Findings extends Map<string, Map<number, FindingBySeverity>> {
     }
 }
 
-export async function reloadFindings() {
+export async function reloadFindings(progress: vscode.Progress<{
+    message?: string | undefined;
+    increment?: number | undefined;
+}> | undefined) {
     let res: Findings = new Findings();
 
     // Get the contest name by reading the Git origin 
@@ -69,13 +72,52 @@ export async function reloadFindings() {
     }
     const octokit = new Octokit({ auth: ghSecret });
 
+    progress?.report({ increment: 10, message: "Processing bot findings..." });
+
+    // Grab bot findings from the bot-report.md if any
+    await importBotFindings(progress, contest, res);
+
+    progress?.report({ increment: 30, message: "Processing HM findings..." });
+
     // Grab HMs from GitHub issues
-    await importHMFindings(octokit, contest, res);
+    await importHMFindings(progress, octokit, contest, res);
 
     findings = res;
 }
 
-async function importHMFindings(octokit: Octokit, contest: string, res: Findings) {
+async function importBotFindings(progress: vscode.Progress<{
+    message?: string | undefined;
+    increment?: number | undefined;
+}> | undefined, contest:string, res: Findings) {
+    try {
+        let document = await vscode.workspace.openTextDocument(vscode.workspace.rootPath + "/bot-report.md");
+        let documentText = document.getText();
+        let documentLines = documentText.split("\n");
+
+        let pos = documentText.indexOf("ProfitManager.sol#L331");
+
+        const reportUrl = "https://github.com/code-423n4/" + contest + "/blob/main/bot-report.md?plain=1#L";
+        const regex = new RegExp("https://github.com/code-423n4/"+contest+"/blob/([a-z0-9A-Z\\.\\-_]+)/([a-z0-9A-Z\.\-_]+)#L([0-9]+)", "g");
+
+        let reportLine = 1;
+        for(let reportLineContent of documentLines) {
+            for (const match of reportLineContent.matchAll(regex)) {
+                const relativeFileName = match[2];
+                const lineNumber = +match[3];
+                const linkUrl = reportUrl + reportLine;
+
+                res.pushFinding(relativeFileName, lineNumber, "🤖", { Link: linkUrl });
+            }
+            
+            reportLine ++;
+        }
+    } catch {}
+}
+
+async function importHMFindings(progress: vscode.Progress<{
+    message?: string | undefined;
+    increment?: number | undefined;
+}> | undefined, octokit: Octokit, contest: string, res: Findings) {
     const iterator = octokit.paginate.iterator(octokit.rest.issues.listForRepo, {
         owner: "code-423n4",
         repo: contest + "-findings", 
@@ -83,10 +125,16 @@ async function importHMFindings(octokit: Octokit, contest: string, res: Findings
         state: "all",
     });
 
-    const regex = new RegExp("https:\/\/github\.com\/code-423n4\/" + contest + "\/blob\/([a-z0-9A-Z\\.\\-_]+)\/(.*)#L([0-9]+)", "g");
+    const regex = new RegExp("https://github.com/code-423n4/"+contest+"/blob/([a-z0-9A-Z\\.\\-_]+)/([a-z0-9A-Z\.\-_]+)#L([0-9]+)", "g");
+    let i = 0;
 
     for await (const { data: issues } of iterator) {
         for (const issue of issues) {
+            if (i % 100 == 0) {
+                progress?.report({ increment: 1, message: "Processing HM findings... " + i + " done" });
+            }
+            i++;
+
             // only consider HM findings (TODO: QA)
             let type: string | undefined;
 
@@ -126,7 +174,7 @@ async function importHMFindings(octokit: Octokit, contest: string, res: Findings
 
 export function getFindings(): Findings {
     if (!findings) {
-        reloadFindings();
+        reloadFindings(undefined);
     }
     return findings
 }

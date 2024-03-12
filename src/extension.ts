@@ -1,6 +1,6 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
-import { ExtensionContext, languages, commands, Disposable, workspace, window, Uri, env} from 'vscode';
+import { ExtensionContext, languages, commands, Disposable, workspace, window, Uri, env, ProgressLocation} from 'vscode';
 import { CodelensProvider } from './CodelensProvider';
 import { reloadFindings, openAll, Finding } from './findings';
 
@@ -33,7 +33,14 @@ export function activate(_context: ExtensionContext) {
 		args.forEach((a) => env.openExternal(Uri.parse(a.Link)));
 	});
 
-	commands.registerCommand("c4-judging.reloadFindings", reloadFindings);
+	commands.registerCommand("c4-judging.reloadFindings", async () => {
+		window.withProgress({
+			cancellable: true,
+			location: ProgressLocation.Notification,
+		}, (progress) => {
+			return reloadFindings(progress);
+ 		});
+	});
 
 	commands.registerCommand("c4-judging.followReferences", openAll);
 

@@ -1,5 +1,4 @@
 [] Source also QA reports
-[] Reinstate bot report
 [] Add status bar with all issues (project/file)
 [] Add a "presort" mode to filter "non-presorted" elements
 [] Add a "judge" mode to filter "non-judged" elements
