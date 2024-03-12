@@ -1,6 +1,6 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
-import { ExtensionContext, languages, commands, Disposable, workspace, window, Uri, env, ProgressLocation} from 'vscode';
+import { ExtensionContext, languages, commands, Disposable, workspace, window, Uri, env, ProgressLocation, StatusBarItem, StatusBarAlignment} from 'vscode';
 import { CodelensProvider } from './CodelensProvider';
 import { reloadFindings, openAll, Finding } from './findings';
 
@@ -9,15 +9,40 @@ import { reloadFindings, openAll, Finding } from './findings';
 
 let disposables: Disposable[] = [];
 let context: ExtensionContext;
+let statusBarItem: StatusBarItem | undefined = undefined;
+let codelensProvider: CodelensProvider;
+
+type Mode = "all" | "presort" | "judging" | "results" | undefined;
+let mode: Mode = undefined;
+
+export function getMode(): Mode {
+	return mode;
+}
 
 export function getContext(): ExtensionContext {
 	return context;
 }
 
+function switchMode(_mode: Mode) {
+	let refresh = mode == undefined;
+
+	mode = _mode;
+	if(refresh) {
+		window.withProgress({
+			cancellable: false,
+			location: ProgressLocation.Notification,
+		}, (progress) => {
+			return reloadFindings(progress);
+ 		});
+	}
+	codelensProvider.updateCodeLenses();
+	updateStatusBar();
+}
+
 export function activate(_context: ExtensionContext) {
 	context = _context;
 	
-	const codelensProvider = new CodelensProvider();
+	codelensProvider = new CodelensProvider();
 
 	languages.registerCodeLensProvider("*", codelensProvider);
 
@@ -35,7 +60,7 @@ export function activate(_context: ExtensionContext) {
 
 	commands.registerCommand("c4-judging.reloadFindings", async () => {
 		window.withProgress({
-			cancellable: true,
+			cancellable: false,
 			location: ProgressLocation.Notification,
 		}, (progress) => {
 			return reloadFindings(progress);
@@ -51,7 +76,61 @@ export function activate(_context: ExtensionContext) {
 		}) as string;
 
 		await context.secrets.store("c4-judging.GitHubToken", token);
-	})
+	});
+
+	commands.registerCommand("c4-judging.statusBarAction", async() => {
+		const picks = [
+			{
+				label: "💯 Switch to 'All findings'",
+				detail: "Shows all findings regardless of whether they were judged or pre-sorted",
+			},
+			{
+				label: "👷 Switch to 'Presort mode'",
+				detail: "Shows only not pre-sorted findings",
+			},
+			{
+				label: "🏛️ Switch to 'Judge mode'",
+				detail: "Shows only not judged findings",
+			},
+			{
+				label: "💰 Switch to 'Results mode'",
+				detail: "Shows only judged findings",
+			},
+			{
+				label: "🔄 Reload findings",
+				detail: "Syncs the in-memory cache with GitHub"
+			}
+		];
+
+		let pick = await window.showQuickPick(
+			picks,
+			{
+				title: "Pick an action"
+			}
+		);
+
+		if (pick == picks[0]) {
+			switchMode('all');
+		} else if (pick == picks[1]) {
+			switchMode("presort");
+		} else if (pick == picks[2]) {
+			switchMode("judging");
+		} else if (pick == picks[3]) {
+			switchMode("results");
+		} else if (pick == picks[4]) {
+			window.withProgress({
+				cancellable: false,
+				location: ProgressLocation.Notification,
+			}, (progress) => {
+				return reloadFindings(progress);
+			 });
+		}
+	});
+
+	statusBarItem = window.createStatusBarItem(StatusBarAlignment.Right, 0);
+	statusBarItem.text = "C4 findings not loaded yet";
+	statusBarItem.command = "c4-judging.statusBarAction";
+	statusBarItem.show();
 }
 
 // this method is called when your extension is deactivated
@@ -60,4 +139,20 @@ export function deactivate() {
 		disposables.forEach(item => item.dispose());
 	}
 	disposables = [];
+}
+
+function updateStatusBar() {
+	if (!statusBarItem) {
+		return;
+	}
+
+	if (mode == "all") {
+		statusBarItem.text = "All findings"
+	} else if (mode == "judging") {
+		statusBarItem.text = "Judging"
+	} else if (mode == "presort") {
+		statusBarItem.text = "Presorting"
+	} else if (mode == "results") {
+		statusBarItem.text = "Results"
+	}
 }

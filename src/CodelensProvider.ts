@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getFindings } from './findings';
+import { getFilteredFindings, getFindings } from './findings';
 import { toRelativePath } from './uri';
 
 /**
@@ -27,7 +27,7 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 	public provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): vscode.CodeLens[] | Thenable<vscode.CodeLens[]> {
 
 		if (vscode.workspace.getConfiguration("c4-judging").get("enableCodeLens", true)) {
-			let findings = getFindings();
+			let findings = getFilteredFindings();
 			if (!findings) {
 				return [];
 			}

@@ -1,7 +1,3 @@
 [] Source also QA reports
-[] Add status bar with all issues (project/file)
-[] Add a "presort" mode to filter "non-presorted" elements
-[] Add a "judge" mode to filter "non-judged" elements
-[] Add a "all" mode
-[] Allow switching mode in status bar
+[] Add status bar with all issue stats and activity progress
 [] Think of how to factor duping. Presort could use the AI grouping, judging the presort's

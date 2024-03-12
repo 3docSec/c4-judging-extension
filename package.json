@@ -10,7 +10,7 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": ["*"],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -30,7 +30,7 @@
         "category": "C4 Judging"
       },
       {
-        "title": "Reload findings.json",
+        "title": "Reload findings from GitHub",
         "command": "c4-judging.reloadFindings",
         "category": "C4 Judging"
       },

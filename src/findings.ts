@@ -1,17 +1,31 @@
 import * as vscode from 'vscode';
 import { toRelativePath } from './uri';
 import { Octokit } from 'octokit';
-import { getContext } from './extension';
+import { getContext, getMode } from './extension';
 
 let findings: Findings;
 
 type Severity = string;
 type FindingBySeverity = Map<Severity, Array<Finding>>;
+
 export type Finding = {
-    Link: string
+    Link: string;
+    IsPresorted: boolean;
+    IsJudged: boolean;
+}
+
+function matchesMode(f: Finding): boolean {
+    switch (getMode()) {
+        case "judging": return !f.IsJudged;
+        case "presort": return !f.IsPresorted;
+        case "results": return f.IsJudged;
+        default: return true;
+    }
 }
 
 class Findings extends Map<string, Map<number, FindingBySeverity>> {
+    uniquesBySeverity: Map<Severity, Set<Finding>> = new Map();
+
     pushFinding(relativeFileName: string, lineNumber: number, severity: Severity, finding: Finding) {
         if(!this.has(relativeFileName)) {
             this.set(relativeFileName, new Map());
@@ -26,7 +40,20 @@ class Findings extends Map<string, Map<number, FindingBySeverity>> {
         }
 
         this.get(relativeFileName)!.get(lineNumber)!.get(severity)!.push(finding);
+        
+        if(!this.uniquesBySeverity.get(severity)) {
+            this.uniquesBySeverity.set(severity, new Set());
+        }
+
+        this.uniquesBySeverity.get(severity)!.add(finding);
     }
+
+    countsBySeverity(): Map<Severity, number> {
+        let ret: Map<Severity, number> = new Map();
+        this.uniquesBySeverity.forEach((v: Set<Finding>, k: string) => ret.set(k, v.size));
+        return ret;
+    }
+
 }
 
 export async function reloadFindings(progress: vscode.Progress<{
@@ -106,7 +133,7 @@ async function importBotFindings(progress: vscode.Progress<{
                 const lineNumber = +match[3];
                 const linkUrl = reportUrl + reportLine;
 
-                res.pushFinding(relativeFileName, lineNumber, "🤖", { Link: linkUrl });
+                res.pushFinding(relativeFileName, lineNumber, "🤖", { Link: linkUrl, IsPresorted: false, IsJudged: false });
             }
             
             reportLine ++;
@@ -137,6 +164,8 @@ async function importHMFindings(progress: vscode.Progress<{
 
             // only consider HM findings (TODO: QA)
             let type: string | undefined;
+            let presorted: boolean = false;
+            let judged: boolean = false;
 
             for (const l of issue.labels) {
                 const lName = l['name' as keyof Object] as unknown as string;
@@ -149,6 +178,10 @@ async function importHMFindings(progress: vscode.Progress<{
                 else if (lName == "withdrawn by warden") {
                     type = undefined;
                     break;
+                } else if (lName.includes("quality report")) {
+                    presorted = true;
+                } else if (lName.includes("satisfactory") || lName.includes("partial-")) {
+                    judged = true;
                 }
             }
 
@@ -165,7 +198,7 @@ async function importHMFindings(progress: vscode.Progress<{
                     relativeFileName,
                     lineNumber,
                     type,
-                    { Link: issue.html_url }
+                    { Link: issue.html_url, IsJudged: judged, IsPresorted: presorted }
                 );
             }
         }
@@ -179,6 +212,30 @@ export function getFindings(): Findings {
     return findings
 }
 
+export function getFilteredFindings() : Findings {
+    let dest: Findings = new Findings();
+    let source = getFindings();
+    if (!source) {
+        return dest;
+    }
+
+    for(let filename of source.keys()) {
+        const fileFindings = source.get(filename)!;
+        for(let lineNumber of fileFindings.keys()) {
+            const lineFindings = fileFindings.get(lineNumber)!;
+            for(let severity of lineFindings.keys()) {
+                const sevFindings = lineFindings.get(severity)!;
+                for(let f of sevFindings) {
+                    if(matchesMode(f)) {
+                        dest.pushFinding(filename, lineNumber, severity, f);
+                    }
+                }
+            }
+        }
+    }
+    return dest;
+}
+
 export async function openAll() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
@@ -189,7 +246,7 @@ export async function openAll() {
     const startLine = editor.selection.start.line;
     const endLine = editor.selection.end.line;
 
-    const fileFindings = getFindings().get(toRelativePath(editor.document.uri));
+    const fileFindings = getFilteredFindings().get(toRelativePath(editor.document.uri));
     if (!fileFindings) {
         vscode.window.showInformationMessage("No issues found for this file");
         return;
