@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import * as fse from 'fs-extra' ;
 import { toRelativePath } from './uri';
 import { Octokit } from 'octokit';
 import { getContext } from './extension';
@@ -17,8 +16,35 @@ type Finding = {
 export async function reloadFindings() {
     let res: Findings = new Map();
 
-    // TODO change this:
-    const contest = "2023-12-ethereumcreditguild";
+    // Get the contest name by reading the Git origin 
+    // -> https://stackoverflow.com/questions/46511595/how-to-access-the-api-for-git-in-visual-studio-code
+    const gitExtension = vscode.extensions.getExtension('vscode.git')?.exports;
+    if (!gitExtension) {
+        vscode.window.showErrorMessage("VS Code Git Extension not found");
+        return;
+    }
+
+    const api = gitExtension.getAPI(1);
+
+    // this will be one of:
+    // (SSH remote): git@github.com:code-423n4/2023-12-ethereumcreditguild.git
+    // (HTTPS remote): https://github.com/code-423n4/2023-12-ethereumcreditguild.git
+    const origin = api.repositories[0].repository.remotes[0].fetchUrl;
+    
+    // this regex can match both protocols
+    const gitRegex = new RegExp(".*code-423n4/(.*)\\.git", "g"); // TODO change this
+    const matches = origin.matchAll(gitRegex);
+
+    let contest: string | undefined = undefined;
+
+    for (const match of matches) {
+        contest = match[1];
+    }
+
+    if (!contest) {
+        vscode.window.showErrorMessage("Git remote is not a valid GitHub repo of 'code-423n4'");
+        return;
+    }
 
     const ghSecret = await getContext().secrets.get("c4-judging.GitHubToken");
     if (!ghSecret) {
