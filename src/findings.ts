@@ -7,14 +7,30 @@ let findings: Findings;
 
 type Severity = string;
 type FindingBySeverity = Map<Severity, Array<Finding>>;
-type Findings = Map<string, Map<number, FindingBySeverity>>;
-
-type Finding = {
+export type Finding = {
     Link: string
 }
 
+class Findings extends Map<string, Map<number, FindingBySeverity>> {
+    pushFinding(relativeFileName: string, lineNumber: number, severity: Severity, finding: Finding) {
+        if(!this.has(relativeFileName)) {
+            this.set(relativeFileName, new Map());
+        }
+
+        if(!this.get(relativeFileName)!.has(lineNumber)) {
+            this.get(relativeFileName)!.set(lineNumber, new Map());
+        }
+
+        if(!this.get(relativeFileName)!.get(lineNumber)!.has(severity)) {
+            this.get(relativeFileName)!.get(lineNumber)!.set(severity, new Array());
+        }
+
+        this.get(relativeFileName)!.get(lineNumber)!.get(severity)!.push(finding);
+    }
+}
+
 export async function reloadFindings() {
-    let res: Findings = new Map();
+    let res: Findings = new Findings();
 
     // Get the contest name by reading the Git origin 
     // -> https://stackoverflow.com/questions/46511595/how-to-access-the-api-for-git-in-visual-studio-code
@@ -32,7 +48,7 @@ export async function reloadFindings() {
     const origin = api.repositories[0].repository.remotes[0].fetchUrl;
     
     // this regex can match both protocols
-    const gitRegex = new RegExp(".*code-423n4/(.*)\\.git", "g"); // TODO change this
+    const gitRegex = new RegExp(".*code-423n4/(.*)\\.git", "g");
     const matches = origin.matchAll(gitRegex);
 
     let contest: string | undefined = undefined;
@@ -54,15 +70,21 @@ export async function reloadFindings() {
     const octokit = new Octokit({ auth: ghSecret });
 
     // Grab HMs from GitHub issues
+    await importHMFindings(octokit, contest, res);
+
+    findings = res;
+}
+
+async function importHMFindings(octokit: Octokit, contest: string, res: Findings) {
     const iterator = octokit.paginate.iterator(octokit.rest.issues.listForRepo, {
         owner: "code-423n4",
-        repo: contest + "-findings", // TODO
+        repo: contest + "-findings", 
         per_page: 100,
         state: "all",
-      });
+    });
 
     const regex = new RegExp("https:\/\/github\.com\/code-423n4\/" + contest + "\/blob\/([a-z0-9A-Z\\.\\-_]+)\/(.*)#L([0-9]+)", "g");
-      
+
     for await (const { data: issues } of iterator) {
         for (const issue of issues) {
             // only consider HM findings (TODO: QA)
@@ -70,18 +92,18 @@ export async function reloadFindings() {
 
             for (const l of issue.labels) {
                 const lName = l['name' as keyof Object] as unknown as string;
-                if (lName == "2 (Med Risk)"){
-                    type = "M"
+                if (lName == "2 (Med Risk)") {
+                    type = "M";
                 }
                 else if (lName == "3 (High Risk)") {
-                    type = "H"
+                    type = "H";
                 }
                 else if (lName == "withdrawn by warden") {
                     type = undefined;
-                    break
+                    break;
                 }
             }
-      
+
             if (!type) continue;
 
             // only consider the primary links of the issue (those at the top)
@@ -90,25 +112,16 @@ export async function reloadFindings() {
             for (const match of links.matchAll(regex)) {
                 const relativeFileName = match[2];
                 const lineNumber = +match[3];
-                const issueUrl = issue.html_url;
 
-                if(!res.has(relativeFileName)) {
-                    res.set(relativeFileName, new Map());
-                }
-
-                if(!res.get(relativeFileName)!.has(lineNumber)) {
-                    res.get(relativeFileName)!.set(lineNumber, new Map());
-                }
-
-                if(!res.get(relativeFileName)!.get(lineNumber)!.has(type)) {
-                    res.get(relativeFileName)!.get(lineNumber)!.set(type, new Array());
-                }
-
-                res.get(relativeFileName)!.get(lineNumber)!.get(type)!.push({Link: issueUrl});
+                res.pushFinding(
+                    relativeFileName,
+                    lineNumber,
+                    type,
+                    { Link: issue.html_url }
+                );
             }
         }
     }
-    findings = res;
 }
 
 export function getFindings(): Findings {
@@ -143,7 +156,7 @@ export async function openAll() {
             continue;
         }
 
-        Object.keys(lineFindings).forEach(severity => {
+        for(let severity of lineFindings.keys()) {
             if (!lineFindings) {
                 return;
             }
@@ -162,7 +175,7 @@ export async function openAll() {
             }
             
             lineLinks.forEach((a) => links.add(a.Link));
-        });
+        };
     }
 
     if(links.size > 0) {
