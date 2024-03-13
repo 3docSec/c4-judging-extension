@@ -48,7 +48,11 @@ class Findings extends Map<string, Map<number, FindingBySeverity>> {
         this.uniquesBySeverity.get(severity)!.add(finding);
     }
 
-    countsBySeverity(): Map<Severity, number> {
+    getUniquesBySeverity(): Map<Severity, Set<Finding>>  {
+        return this.uniquesBySeverity;
+    }
+
+    getCountsBySeverity(): Map<Severity, number> {
         let ret: Map<Severity, number> = new Map();
         this.uniquesBySeverity.forEach((v: Set<Finding>, k: string) => ret.set(k, v.size));
         return ret;
@@ -180,8 +184,13 @@ async function importHMFindings(progress: vscode.Progress<{
                     break;
                 } else if (lName.includes("quality report")) {
                     presorted = true;
-                } else if (lName.includes("satisfactory") || lName.includes("partial-")) {
+                } else if (lName.includes("satisfactory") || lName.includes("partial-") || lName == "nullified") {
                     judged = true;
+                } else if (lName.includes("grade-")) {
+                    // judges only need to select the top grade-a,
+                    // so, for the scope of this tool, we make the simplification of presorted = judging
+                    judged = true;
+                    presorted = true;
                 }
             }
 

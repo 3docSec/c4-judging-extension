@@ -2,7 +2,7 @@
 // Import the module and reference it with the alias vscode in your code below
 import { ExtensionContext, languages, commands, Disposable, workspace, window, Uri, env, ProgressLocation, StatusBarItem, StatusBarAlignment} from 'vscode';
 import { CodelensProvider } from './CodelensProvider';
-import { reloadFindings, openAll, Finding } from './findings';
+import { reloadFindings, openAll, Finding, getFindings, getFilteredFindings } from './findings';
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -102,6 +102,13 @@ export function activate(_context: ExtensionContext) {
 			}
 		];
 
+		if (mode == 'judging' || mode == 'presort') {
+			picks.push({
+				label: "👀 Open all remaining findings",
+				detail: "Opens all findings in browser"
+			});
+		}
+
 		let pick = await window.showQuickPick(
 			picks,
 			{
@@ -124,6 +131,15 @@ export function activate(_context: ExtensionContext) {
 			}, (progress) => {
 				return reloadFindings(progress);
 			 });
+		} else {
+			let filteredFindings = getFilteredFindings().getUniquesBySeverity();
+			let sevs = ["H", "M", "Q"]
+			for(let sev of sevs) {
+				let fs = filteredFindings.get(sev) || []
+				for (let f of fs) {
+					env.openExternal(Uri.parse(f.Link));
+				}
+			}
 		}
 	});
 
@@ -147,12 +163,40 @@ function updateStatusBar() {
 	}
 
 	if (mode == "all") {
-		statusBarItem.text = "All findings"
+		statusBarItem.text = "All findings ("
 	} else if (mode == "judging") {
-		statusBarItem.text = "Judging"
+		statusBarItem.text = "Judging ("
 	} else if (mode == "presort") {
-		statusBarItem.text = "Presorting"
+		statusBarItem.text = "Presorting ("
 	} else if (mode == "results") {
-		statusBarItem.text = "Results"
+		statusBarItem.text = "Results ("
 	}
+
+	let allFindingsCount = getFindings().getCountsBySeverity();
+	let filteredFindingsCount = getFilteredFindings().getCountsBySeverity();
+
+	let allFindingsTotal = 
+		(allFindingsCount.get("H") || 0) +
+		(allFindingsCount.get("M") || 0) +
+		(allFindingsCount.get("Q") || 0);
+
+	let filteredFindingsTotal =
+		(filteredFindingsCount.get("H") || 0) +
+		(filteredFindingsCount.get("M") || 0) +
+		(filteredFindingsCount.get("Q") || 0);
+
+	let percentLeftProgress = (allFindingsTotal == 0) ? 100 :
+		filteredFindingsTotal * 100 / allFindingsTotal;
+
+	let percentDoneProgress = Math.floor(100 - percentLeftProgress);
+
+	if (mode == 'judging' || mode == 'presort') {
+		statusBarItem.text += percentDoneProgress + "% done -"
+	}
+
+	for (let severity of filteredFindingsCount.keys()) {
+		statusBarItem.text += " " + severity + ": " + filteredFindingsCount.get(severity)!;
+	}
+
+	statusBarItem.text += " )";
 }
