@@ -11,6 +11,13 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 	private regex: RegExp;
 	private _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
 	public readonly onDidChangeCodeLenses: vscode.Event<void> = this._onDidChangeCodeLenses.event;
+	private decorationType = vscode.window.createTextEditorDecorationType(
+		{
+			backgroundColor: "#80008030",
+			overviewRulerColor: 'purple',
+			overviewRulerLane: vscode.OverviewRulerLane.Right,
+		}
+	);
 
 	constructor() {
 		this.regex = /(.+)/g;
@@ -33,6 +40,7 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 			}
 
 			this.codeLenses = [];
+			let ranges: vscode.Range[] = [];
 
 			const relativeFileName = toRelativePath(document.uri);
 
@@ -56,9 +64,15 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 						arguments: [links!]
 					}));
 					title = "";
+
+					if (severity != "🤖") {
+						ranges.push(range!);
+					}
 				}
 			}
-
+			vscode.window.activeTextEditor?.setDecorations(
+				this.decorationType, ranges
+			);
 			return this.codeLenses;
 		}
 		return [];
