@@ -116,6 +116,10 @@ export function activate(_context: ExtensionContext) {
 			}
 		);
 
+		if (!pick) {
+			return;
+		}
+		
 		if (pick == picks[0]) {
 			switchMode('all');
 		} else if (pick == picks[1]) {
@@ -133,10 +137,14 @@ export function activate(_context: ExtensionContext) {
 			 });
 		} else {
 			let filteredFindings = getFilteredFindings().getUniquesBySeverity();
-			let sevs = ["H", "M", "Q"]
-			for(let sev of sevs) {
-				let fs = filteredFindings.get(sev) || []
-				for (let f of fs) {
+			let toOpenFindings = new Set([...(filteredFindings.get("H") || []),
+							              ...(filteredFindings.get("M") || [])]);
+
+			// request confirmation for more than 20 findings
+			const selection = toOpenFindings.size <= 20 ? "OK" :
+				await window.showInformationMessage("OK to open " + toOpenFindings.size + " findings in your browser?", "OK", "Cancel");
+			if (selection == "OK") {
+				for (let f of toOpenFindings) {
 					env.openExternal(Uri.parse(f.Link));
 				}
 			}

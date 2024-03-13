@@ -82,13 +82,14 @@ export async function reloadFindings(progress: vscode.Progress<{
     const origin = api.repositories[0].repository.remotes[0].fetchUrl;
     
     // this regex can match both protocols
-    const gitRegex = new RegExp(".*code-423n4/(.*)\\.git", "g");
+    const gitRegex = new RegExp(".*code-423n4/(.*)", "g");
     const matches = origin.matchAll(gitRegex);
 
     let contest: string | undefined = undefined;
 
     for (const match of matches) {
         contest = match[1];
+        contest = contest!.replace("\.git", "");
     }
 
     if (!contest) {
@@ -295,9 +296,12 @@ export async function openAll() {
     if(links.size > 0) {
         let msg = "Found a total of " + links.size + " reports. Ok to open them in your browser?";
 
-        const selection = await vscode.window.showInformationMessage(msg, "OK", "Cancel");
+        const selection = links.size <= 20 ? "OK" :
+            await vscode.window.showInformationMessage("OK to open " + links.size + " findings in your browser?", "OK", "Cancel");
         if (selection == "OK") {
-            links.forEach((a) => vscode.env.openExternal(vscode.Uri.parse(a)));
+            for (let f of links) {
+                vscode.env.openExternal(vscode.Uri.parse(f));
+            }
         }
     } else {
         vscode.window.showInformationMessage("No findings were reported for the selected code");
