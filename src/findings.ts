@@ -150,6 +150,18 @@ async function importHMFindings(progress: vscode.Progress<{
     message?: string | undefined;
     increment?: number | undefined;
 }> | undefined, octokit: Octokit, contest: string, res: Findings) {
+    try {
+        // findings repo may not be accessible
+        let xxx = await octokit.rest.repos.get({
+            owner: "code-423n4",
+            repo: contest + "-findings", 
+        });
+
+    } catch (e) {
+        vscode.window.showErrorMessage("Could not access the findings repo: " + e);
+        return;
+    }
+
     const iterator = octokit.paginate.iterator(octokit.rest.issues.listForRepo, {
         owner: "code-423n4",
         repo: contest + "-findings", 

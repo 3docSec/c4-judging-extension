@@ -24,17 +24,7 @@ export function getContext(): ExtensionContext {
 }
 
 function switchMode(_mode: Mode) {
-	let refresh = mode == undefined;
-
 	mode = _mode;
-	if(refresh) {
-		window.withProgress({
-			cancellable: false,
-			location: ProgressLocation.Notification,
-		}, (progress) => {
-			return reloadFindings(progress);
- 		});
-	}
 	codelensProvider.updateCodeLenses();
 	updateStatusBar();
 }
@@ -119,6 +109,15 @@ export function activate(_context: ExtensionContext) {
 		if (!pick) {
 			return;
 		}
+
+		if(mode == undefined) {
+			await window.withProgress({
+				cancellable: false,
+				location: ProgressLocation.Notification,
+			}, (progress) => {
+				return reloadFindings(progress);
+			 });
+		}
 		
 		if (pick == picks[0]) {
 			switchMode('all');
@@ -170,6 +169,12 @@ function updateStatusBar() {
 		return;
 	}
 
+	let allFindingsCount = getFindings()?.getCountsBySeverity();
+	if (!allFindingsCount) {
+		return;
+	}
+	let filteredFindingsCount = getFilteredFindings().getCountsBySeverity();
+
 	if (mode == "all") {
 		statusBarItem.text = "All findings ("
 	} else if (mode == "judging") {
@@ -179,9 +184,6 @@ function updateStatusBar() {
 	} else if (mode == "results") {
 		statusBarItem.text = "Results ("
 	}
-
-	let allFindingsCount = getFindings().getCountsBySeverity();
-	let filteredFindingsCount = getFilteredFindings().getCountsBySeverity();
 
 	let allFindingsTotal = 
 		(allFindingsCount.get("H") || 0) +

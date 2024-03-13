@@ -1,4 +1,3 @@
-[] error handling
 [] instruction material
 
 Long term:

@@ -75,6 +75,9 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 			);
 			return this.codeLenses;
 		}
+		vscode.window.activeTextEditor?.setDecorations(
+			this.decorationType, []
+		);
 		return [];
 	}
 
