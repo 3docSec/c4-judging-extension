@@ -63,9 +63,15 @@ export function activate(_context: ExtensionContext) {
 		const token = await window.showInputBox({
 			placeHolder: "ghp_xxx",
 			prompt: "Enter your GitHub API token - generated as simple token with repository access"
-		}) as string;
+		});
 
-		await context.secrets.store("c4-judging.GitHubToken", token);
+		if (!token) {
+			return;
+		}
+
+		await context.secrets.store("c4-judging.GitHubToken", token!);
+
+		window.showInformationMessage("GitHub token saved");
 	});
 
 	commands.registerCommand("c4-judging.statusBarAction", async() => {

@@ -79,19 +79,20 @@ export async function reloadFindings(progress: vscode.Progress<{
     // this will be one of:
     // (SSH remote): git@github.com:code-423n4/2023-12-ethereumcreditguild.git
     // (HTTPS remote): https://github.com/code-423n4/2023-12-ethereumcreditguild.git
-    const origin = api.repositories[0].repository.remotes[0].fetchUrl;
-    
     // this regex can match both protocols
-    const gitRegex = new RegExp(".*code-423n4/(.*)", "g");
-    const matches = origin.matchAll(gitRegex);
 
     let contest: string | undefined = undefined;
+    const gitRegex = new RegExp(".*code-423n4/(.*)", "g");
+    for (let repository of api.repositories) {
+        const origin = repository.repository.remotes[0]?.fetchUrl;
+        const matches = origin?.matchAll(gitRegex);
 
-    for (const match of matches) {
-        contest = match[1];
-        contest = contest!.replace("\.git", "");
+        for (const match of matches) {
+            contest = match[1];
+            contest = contest!.replace("\.git", "");
+        }
     }
-
+    
     if (!contest) {
         vscode.window.showErrorMessage("Git remote is not a valid GitHub repo of 'code-423n4'");
         return;
